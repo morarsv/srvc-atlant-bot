@@ -20,7 +20,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/telegram-srvc-bot:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/srvc-atlant-bot:latest
 deploy:
     runs-on: ubuntu-latest
     needs: build_and_push
@@ -40,7 +40,7 @@ deploy:
             sudo docker compose stop bot || true
             sudo docker compose rm -f bot || true
 
-            sudo docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/telegram-srvc-bot:latest || true
+            sudo docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/srvc-atlant-bot:latest || true
 
             sudo docker compose pull bot
 
