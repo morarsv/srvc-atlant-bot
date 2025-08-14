@@ -1,7 +1,7 @@
 from typing import List
 from dataclasses import dataclass
 
-from sqlalchemy import BigInteger, String, Uuid, func, text, DateTime, Integer, ForeignKey, Boolean, ARRAY
+from sqlalchemy import BigInteger, String, Uuid, func, text, DateTime, Integer, ForeignKey, Boolean, ARRAY, Date
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from bot.config_data.config import Config, load_config
@@ -52,6 +52,7 @@ class Companies(Base):
     __tablename__ = 'companies'
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     company: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
+    report: Mapped[str] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -92,8 +93,8 @@ class Projects(Base):
                                                                               lazy='selectin',
                                                                               cascade='delete')
     report: Mapped[List['ProjectReport']] = relationship(back_populates='project',
-                                                          lazy='selectin',
-                                                          cascade='delete')
+                                                         lazy='selectin',
+                                                         cascade='delete')
 
 
 class ProjectReport(Base):
@@ -187,6 +188,23 @@ class ProjectUser(Base):
                                           ForeignKey('users.id', ondelete='CASCADE'),
                                           nullable=False,
                                           primary_key=True)
+
+
+@dataclass
+class ProjectComment(Base):
+    __tablename__ = 'project_comment'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id: Mapped[int] = mapped_column(Integer,
+                                            ForeignKey('projects.id', ondelete='CASCADE'),
+                                            nullable=False)
+    project_title: Mapped[str] = mapped_column(String(500),
+                                               nullable=False)
+    comment: Mapped[str] = mapped_column(String(1024), nullable=True)
+    specified_date: Mapped[Date] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("(NOW() AT TIME ZONE 'UTC' + interval '7 hour')"))
 
 
 @dataclass

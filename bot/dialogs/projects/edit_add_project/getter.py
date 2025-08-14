@@ -38,7 +38,10 @@ async def preview_getter(dialog_manager: DialogManager,
     dialog_data = dialog_manager.dialog_data
 
     dialog_data[DgDataConst.finished_key.value] = True
-    status_edit = start_data.get(StDataConst.status_edit.value, False)
+    try:
+        status_edit = start_data.get(StDataConst.status_edit.value, False)
+    except AttributeError:
+        status_edit = False
     if status_edit:
         start_data[StDataConst.status_edit.value] = False
         widget_data[WgDataConst.status_edit_project.value] = True

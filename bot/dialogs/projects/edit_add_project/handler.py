@@ -1,23 +1,21 @@
+import asyncio
 import logging
 
-from uuid import UUID
 from aiogram_dialog.widgets.input import ManagedTextInput
 from aiogram_dialog.widgets.kbd import Button
 from aiogram.types import CallbackQuery, Message
 from aiogram_dialog import DialogManager, ShowMode, StartMode
-from bot.database.models import Users, Projects
+from bot.database.models import Projects
 from bot.database import query
 from bot.lexicon.constants.constant import (WidgetDataConstant as WgDataConst,
                                             StartDataConstant as StDataConst,
                                             PoolingConstant as poolConst,
                                             DialogDataConstant as DgDataConst)
-from bot.utils.bot_func import bot_current_time
+from bot.utils.bot_func import bot_current_time, alert_msg_to_chat, get_session_data
 from bot.services.web_reports.utils import web_add_project, web_update_project, web_delete_project
-from bot.services.airflow.dags_generator.dag_func import generate_dag
+from bot.services.msvc.generator import func
 from bot.state.dialog_state import StartSG, ProjectsEditAddSG
-from bot.support_models.models import SupportSessionUser
 from bot.lexicon.lexicon_tg import LEXICON_TG_BOT
-from bot.utils.bot_func import alert_msg_to_chat
 from fluentogram import TranslatorRunner
 from typing import TYPE_CHECKING
 
@@ -89,9 +87,13 @@ async def btn_confirm(callback: CallbackQuery,
 
     i18n: TranslatorRunner = middleware_data[poolConst.i18n.value]
     status_edit = widget_data.get(StDataConst.status_edit.value, False)
-    user_uuid = UUID(start_data[StDataConst.user_uuid.value])
     title = widget_data[WgDataConst.project_title.value]
     description = widget_data.get(WgDataConst.project_description.value, ' ')
+
+    time: str = await bot_current_time()
+    tg_id = int(callback.from_user.id)
+    _, login, _, user_uuid, company_id, company_name = get_session_data(tg_id=tg_id,
+                                                                        dialog_manager=dialog_manager)
 
     if status_edit:
         project_id = int(start_data[StDataConst.project_id.value])
@@ -102,43 +104,54 @@ async def btn_confirm(callback: CallbackQuery,
             callback=callback
         )
         await query.update_project_by_id(p_id=project_id, title=title, description=description)
+        asyncio.create_task(func.generate_dag(logger=logger,
+                                              project_title=title,
+                                              project_id=project_id,
+                                              company_name=company_name,
+                                              start_date=time))
+        asyncio.create_task(func.generate_dbt_project(
+            logger=logger,
+            company_id=company_id,
+            company_name=company_name
+        ))
     else:
-        user: Users = await query.get_user_by_id(user_id=user_uuid)
         project: Projects = Projects()
         project.title = title
         project.description = description
-        project.company_id = user.company_id
-        project.user_login = user.login
-        await query.add_project_and_report_and_set_manager(project=project, user_id=user_uuid)
+        project.company_id = company_id
+        project.user_login = login
+        await query.add_project_and_comment_and_report_and_set_manager(project=project,
+                                                                       user_id=user_uuid)
         project: Projects = await query.get_project_by_title_description_and_user_login(
             title=title,
             description=description,
-            user_login=user.login
+            user_login=login
         )
         logger.info(f'Added project. Title: {project.title}, ID:{project.id}')
+        comment_id: int = await query.get_comment_id_by_comment_and_date(comment='First comment',
+                                                                         specified_date=str(project.created_at)[:10],
+                                                                         project_id=project.id)
+        await func.add_comment(
+            logger=logger,
+            comment_id=comment_id
+        )
         await web_add_project(
             logger=logger,
             user_id=str(user_uuid),
             project=project,
             callback=callback
         )
-        time: str = await bot_current_time()
-        try:
-            await generate_dag(logger=logger,
-                               project_title=title,
-                               project_id=project.id,
-                               company_name=user.company.company,
-                               start_date=time,
-                               callback=callback)
-        except Exception as e:
-            logger.exception(f"Ошибка при генерации дага на стророне микросервиса: {e}")
-        tg_id = int(callback.from_user.id)
-        online_users: dict[int, SupportSessionUser] = middleware_data[poolConst.online_users.value]
-
-        user: SupportSessionUser = online_users.get(tg_id)
-        company_name: str = user['company_name']
+        asyncio.create_task(func.generate_dag(logger=logger,
+                                              project_title=title,
+                                              project_id=project.id,
+                                              company_name=company_name,
+                                              start_date=time))
+        asyncio.create_task(func.generate_dbt_project(
+            logger=logger,
+            company_id=company_id,
+            company_name=company_name
+        ))
         await alert_msg_to_chat(chat_id=_chat_alert_id,
-                                callback=callback,
                                 msg=i18n.alert.added.project(
                                     title=title,
                                     company=company_name
@@ -161,26 +174,24 @@ async def btn_delete(callback: CallbackQuery,
     widget_data = dialog_manager.current_context().widget_data
     i18n: TranslatorRunner = middleware_data[poolConst.i18n.value]
     project_id = int(start_data[StDataConst.project_id.value])
-
+    tg_id = int(callback.from_user.id)
+    username, _, role_id, _, company_id, company_name = get_session_data(tg_id=tg_id,
+                                                                         dialog_manager=dialog_manager)
     await query.delete_project_by_id(p_id=project_id)
     await web_delete_project(
         logger=logger,
         project_id=project_id,
         callback=callback
     )
-    tg_id = int(callback.from_user.id)
-    online_users: dict[int, SupportSessionUser] = middleware_data[poolConst.online_users.value]
-
-    user: SupportSessionUser = online_users.get(tg_id)
-    username: str = user['username']
-    role_id: int = user['role_id']
+    asyncio.create_task(func.generate_dbt_project(
+        logger=logger,
+        company_id=company_id,
+        company_name=company_name
+    ))
     title = widget_data[WgDataConst.project_title.value]
-    company_name: str = user['company_name']
-
     logger.info(f'Project deleted. Title {title}, ID: {project_id}')
 
     await alert_msg_to_chat(chat_id=_chat_alert_id,
-                            callback=callback,
                             msg=i18n.alert.deleted.project(
                                 title=title,
                                 company=company_name

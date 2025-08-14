@@ -85,7 +85,7 @@ async def create_connection_metrika(logger: logging,
     attributions = \
         [LEXICON_ATTRIBUTION_AIRFLOW[attribution],
          LEXICON_ATTRIBUTION_AIRFLOW[str(minor_attribution)]] \
-        if minor_attribution else [LEXICON_ATTRIBUTION_AIRFLOW[attribution]]
+            if minor_attribution else [LEXICON_ATTRIBUTION_AIRFLOW[attribution]]
     extra = {'key_goals': key_goals,
              'minor_goals': minor_goals,
              'ecom_flag': ecom_flag,
@@ -105,13 +105,11 @@ async def create_connection_metrika(logger: logging,
         "extra": json.dumps(extra)
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(url=url,
                               headers=_headers,
                               json=data,
                               auth=httpx.BasicAuth(username=username, password=password))
-
-        logger.error(f"Ошибка: {r.status_code}, Тело ответа: {r.text}")
         if r.status_code == 409:
             url = LEXICON_URL['AIRFLOW_URL'] \
                   + LEXICON_URL['API_UPDATE_CONNECTION'].format(connection_id=connection_id)
@@ -166,7 +164,10 @@ async def set_active_dag(logger: logging,
 
     async with httpx.AsyncClient() as client:
         r = await client.get(url=url_start,
-                             auth=httpx.BasicAuth(username=username, password=password))
+                             auth=httpx.BasicAuth(
+                                 username=username,
+                                 password=password)
+                             )
 
         if r.status_code != 200:
             logger.error(f'Status code: {r.status_code}\n'

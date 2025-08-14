@@ -6,7 +6,7 @@ from fluentogram import TranslatorRunner
 from bot.lexicon.lexicon_ya import LEXICON_ATTRIBUTION
 from bot.lexicon.constants.constant import (WidgetDataConstant as WgDataConst,
                                             StartDataConstant as StDataConst)
-
+from bot.utils.bot_func import get_session_data
 
 if TYPE_CHECKING:
     from bot.locales.stub import TranslatorRunner
@@ -22,7 +22,10 @@ async def preview_getter(dialog_manager: DialogManager,
 
     attribution = start_data[StDataConst.counter_attribution.value]
     minor_attribution = start_data[StDataConst.counter_minor_attribution.value] or '-'
-    role_id = start_data[StDataConst.user_role_id.value]
+    tg_id = int(event_from_user.id)
+    _, _, role_id, _, _, _ = get_session_data(tg_id=tg_id,
+                                              dialog_manager=dialog_manager)
+
     list_counters = start_data[StDataConst.ya_metrika_counters.value]
 
     preview_text = i18n.project.ya.metrika.counters.preview.manager(
@@ -69,11 +72,13 @@ async def minor_attribution_getter(dialog_manager: DialogManager,
     widget_data = dialog_manager.current_context().widget_data
 
     attribution = widget_data[WgDataConst.list_attributions.value]
+    selected = 1 if widget_data.get(WgDataConst.counter_minor_attribution.value) else None
     return {
         'attribution': attribution,
         'attribution_text': i18n.project.ya.metrika.config.m.attribution(),
         'btn_continue': i18n.button.next(),
-        'btn_back': i18n.button.back()
+        'btn_back': i18n.button.back(),
+        'selected': selected
     }
 
 

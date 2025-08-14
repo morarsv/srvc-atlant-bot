@@ -1,34 +1,28 @@
 import logging
-from uuid import UUID
+
 from typing import Any
+from datetime import datetime
 from aiogram.types import User
 from aiogram.types import CallbackQuery
 from aiogram_dialog import DialogManager, StartMode, ShowMode
 from aiogram_dialog.widgets.kbd import Button
+from dateutil.relativedelta import relativedelta
 from bot.lexicon.lexicon_ya import LEXICON_SYSTEM_ID
 from bot.services.yandex.utils import get_ya_counters
 from bot.database import query
-from bot.database.models import (Projects, YaDirectLogins,
-                                 YaMetrikaCounters, YandexAccesses)
-from bot.state.dialog_state import (StartSG, ProjectsSG, ProjectsEditAddSG, YaMetrikaCountersSG,
+from bot.database.models import ProjectComment, Projects, YaDirectLogins, YaMetrikaCounters, YandexAccesses
+from bot.state.dialog_state import (StartSG, ProjectsSG, ProjectsEditAddSG, YaMetrikaCountersSG, ProjectCommentSG,
                                     YaMetrikaCountersEditAddSG, YaDirectLoginsSettingsSG, YaDirectLoginsAddSG)
-from bot.lexicon.constants.constant import (WidgetDataConstant as WgDataConst,
-                                            StartDataConstant as StDataConst,
-                                            PoolingConstant as poolConst)
-from bot.support_models.models import SupportSessionUser
+from bot.lexicon.constants.constant import WidgetDataConstant as WgDataConst, StartDataConstant as StDataConst
+from bot.utils.bot_func import get_session_data
 
 logger = logging.getLogger(__name__)
 
 
 async def get_list_projects(dialog_manager: DialogManager,
                             event_from_user: User) -> list[tuple[str, int]]:
-    middleware_data = dialog_manager.middleware_data
     tg_id = int(event_from_user.id)
-
-    online_users: dict[int, SupportSessionUser] = middleware_data[poolConst.online_users.value]
-
-    user: SupportSessionUser = online_users.get(tg_id)
-    user_uuid: UUID = user['user_uuid']
+    _, _, _, user_uuid, _, _ = get_session_data(tg_id=tg_id, dialog_manager=dialog_manager)
 
     list_projects: list[Projects] = await query.get_list_projects_by_user_uuid(user_uuid=user_uuid)
     projects = [(p.title, p.id) for p in list_projects]
@@ -48,16 +42,10 @@ async def btn_back(callback: CallbackQuery,
 async def btn_add_project(callback: CallbackQuery,
                           button: Button,
                           dialog_manager: DialogManager) -> None:
-    start_data = dialog_manager.start_data
-
-    user_uuid = start_data[StDataConst.user_uuid.value]
     await dialog_manager.start(
         state=ProjectsEditAddSG.INPUT_TITLE,
         show_mode=ShowMode.EDIT,
-        mode=StartMode.NORMAL,
-        data={
-            StDataConst.user_uuid.value: user_uuid
-        }
+        mode=StartMode.NORMAL
     )
 
 
@@ -65,8 +53,9 @@ async def btn_update_list_project(callback: CallbackQuery,
                                   button: Button,
                                   dialog_manager: DialogManager) -> None:
     start_data = dialog_manager.start_data
-
-    user_uuid = UUID(start_data[StDataConst.user_uuid.value])
+    tg_id = int(callback.from_user.id)
+    _, _, _, user_uuid, _, _ = get_session_data(tg_id=tg_id,
+                                                dialog_manager=dialog_manager)
     list_projects: list[Projects] = await query.get_list_projects_by_user_uuid(user_uuid=user_uuid)
     projects = [(p.title, p.id) for p in list_projects]
     start_data[StDataConst.list_projects.value] = projects
@@ -78,7 +67,6 @@ async def btn_switch_to_project(callback: CallbackQuery,
                                 selected_item: str) -> None:
     project_id = int(selected_item)
     widget_data = dialog_manager.current_context().widget_data
-
     widget_data[WgDataConst.project_id.value] = project_id
 
     await dialog_manager.switch_to(
@@ -118,17 +106,25 @@ async def update_project_data(dialog_manager: DialogManager):
     project: Projects = await query.get_project_by_id(project_id=project_id)
     list_counters: list[str] = await query.get_ya_m_counters_names_by_p_id(p_id=project_id)
     list_logins: list[str] = await query.get_ya_active_d_logins_names_by_p_id(p_id=project_id)
-    url_link = await query.get_report_project(project_id=project.id)
+    all_logins: list[str] = await query.get_ya_all_d_logins_names_by_p_id(p_id=project_id)
+
     counters = ', '.join(list_counters or []) or None
     logins = ', '.join(list_logins or []) or None
+    settings_logins = 1 if all_logins else None
 
     widget_data[WgDataConst.project_id.value] = project_id
     widget_data[WgDataConst.project_title.value] = project.title
     widget_data[WgDataConst.project_description.value] = project.description
     widget_data[WgDataConst.project_connected_counters.value] = counters
     widget_data[WgDataConst.project_connected_logins.value] = logins
+    widget_data[WgDataConst.project_created_at.value] = str(project.created_at)[:10]
 
-    return project_id, project.title, project.description, counters, logins, url_link
+    return project_id, project.title, project.description, counters, logins, settings_logins
+
+
+async def project_report(project_id: int) -> str:
+    url_link = await query.get_report_project(project_id=project_id)
+    return url_link
 
 
 async def btn_settings_ya_logins(callback: CallbackQuery,
@@ -164,9 +160,9 @@ async def btn_settings_ya_counters(callback: CallbackQuery,
                                    button: Button,
                                    dialog_manager: DialogManager) -> None:
     widget_data = dialog_manager.current_context().widget_data
-    start_data = dialog_manager.start_data
-
-    role_id = start_data[StDataConst.user_role_id.value]
+    tg_id = int(callback.from_user.id)
+    _, _, role_id, _, _, _ = get_session_data(tg_id=tg_id,
+                                              dialog_manager=dialog_manager)
     project_id = widget_data[WgDataConst.project_id.value]
     project_title = widget_data[WgDataConst.project_title.value]
     list_counters: list[YaMetrikaCounters] = await query.get_ya_m_list_counters_by_p_id(project_id=project_id)
@@ -209,9 +205,9 @@ async def btn_edit_project(callback: CallbackQuery,
     )
 
 
-async def btn_update_status(callback: CallbackQuery,
-                            button: Button,
-                            dialog_manager: DialogManager) -> None:
+async def update_status(callback: CallbackQuery,
+                        button: Button,
+                        dialog_manager: DialogManager) -> None:
     widget_data = dialog_manager.current_context().widget_data
     start_data = dialog_manager.start_data
 
@@ -257,16 +253,14 @@ async def btn_add_ya_logins(callback: CallbackQuery,
 async def btn_add_ya_counters(callback: CallbackQuery,
                               button: Button,
                               dialog_manager: DialogManager) -> None:
-    start_data = dialog_manager.start_data
     widget_data = dialog_manager.current_context().widget_data
 
-    project_title = widget_data.get(WgDataConst.project_title.value,
-                                    start_data.get(StDataConst.project_title.value, ''))
-    project_id = widget_data.get(WgDataConst.project_id.value,
-                                 start_data.get(StDataConst.project_id.value, ''))
+    project_title = widget_data[WgDataConst.project_title.value]
+    project_id = widget_data[WgDataConst.project_id.value]
     list_counters: list[YaMetrikaCounters] = await query.get_ya_m_list_counters_by_p_id(project_id=project_id)
-
-    role_id = start_data[StDataConst.user_role_id.value]
+    tg_id = int(callback.from_user.id)
+    _, _, role_id, _, _, _ = get_session_data(tg_id=tg_id,
+                                              dialog_manager=dialog_manager)
 
     if list_counters:
         counter: YaMetrikaCounters = list_counters[0]
@@ -326,3 +320,34 @@ async def btn_ya_direct_access(callback: CallbackQuery,
     await dialog_manager.switch_to(state=ProjectsSG.YA_ACCESS,
                                    show_mode=ShowMode.EDIT)
 
+
+async def btn_button_comments(callback: CallbackQuery,
+                              button: Button,
+                              dialog_manager: DialogManager) -> None:
+    widget_data = dialog_manager.current_context().widget_data
+
+    project_created_at = widget_data[WgDataConst.project_created_at.value]
+    project_id = widget_data[WgDataConst.project_id.value]
+    project_title = widget_data[WgDataConst.project_title.value]
+
+    fmt = '%Y-%m-%d'
+    end_ftm = '%d-%m-%Y'
+    project_created_at = datetime.strptime(project_created_at, fmt)
+    three_months_before = project_created_at - relativedelta(months=3)
+    project_created_at = three_months_before.strftime(end_ftm)
+
+    list_comments: list[ProjectComment] = await query.get_list_comments_by_project_id(
+        project_id=int(project_id)
+    )
+
+    comments = [(f'{str(c.specified_date)[:10]} {c.comment[:15]}...', str(c.id)) for c in list_comments]
+
+    await dialog_manager.start(state=ProjectCommentSG.PREVIEW,
+                               mode=StartMode.NORMAL,
+                               show_mode=ShowMode.EDIT,
+                               data={
+                                   StDataConst.project_id.value: project_id,
+                                   StDataConst.project_title.value: project_title,
+                                   StDataConst.project_created_at.value: project_created_at,
+                                   StDataConst.project_comments.value: comments
+                               })

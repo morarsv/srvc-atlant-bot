@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 from bot.services.web_reports.utils import get_project_report
 from bot.services.yandex.utils import get_url_ya_access
 from bot.lexicon.lexicon_ya import LEXICON_SYSTEM_ID, LEXICON_URL
-from bot.dialogs.projects.handler import update_project_data, get_list_projects
+from bot.dialogs.projects.handler import update_project_data, get_list_projects, project_report
+from bot.utils.bot_func import get_session_data
 
 if TYPE_CHECKING:
     from bot.locales.stub import TranslatorRunner
@@ -20,13 +21,12 @@ async def preview_getter(dialog_manager: DialogManager,
                          i18n: TranslatorRunner,
                          event_from_user: User,
                          **kwargs):
-    start_data = dialog_manager.start_data
-
+    tg_id = int(event_from_user.id)
     projects = await get_list_projects(
         dialog_manager=dialog_manager,
         event_from_user=event_from_user
     )
-    role_id = start_data[StDataConst.user_role_id.value]
+    _, _, role_id, _, _, _ = get_session_data(tg_id=tg_id, dialog_manager=dialog_manager)
 
     try:
         dialog_manager.show_mode = ShowMode.DELETE_AND_SEND
@@ -71,15 +71,16 @@ async def info_project_getter(dialog_manager: DialogManager,
                               i18n: TranslatorRunner,
                               event_from_user: User,
                               **kwargs):
-    start_data = dialog_manager.start_data
+    tg_id = int(event_from_user.id)
     try:
         dialog_manager.show_mode = ShowMode.DELETE_AND_SEND
     except AttributeError as e:
         dialog_manager.show_mode = ShowMode.SEND
         logger.error(f'Error deleting message: {e}')
-    role_id = start_data[StDataConst.user_role_id.value]
+    _, _, role_id, _, _, _ = get_session_data(tg_id=tg_id, dialog_manager=dialog_manager)
 
-    project_id, project_title, project_description, ya_counters, ya_logins, url_link = await update_project_data(
+    (project_id, project_title, project_description, ya_counters, ya_logins,
+     settings_logins) = await update_project_data(
         dialog_manager=dialog_manager
     )
 
@@ -97,22 +98,41 @@ async def info_project_getter(dialog_manager: DialogManager,
         preview_text = (f'{preview_text}\n'
                         f'\n{i18n.project.info.ya.logins(logins=ya_logins)}')
 
-    logins = 1 if ya_logins else None
-    access, logins = (1, logins) if role_id != 4 else (None, None)
+    access, logins = (1, settings_logins) if role_id != 4 else (None, None)
     return {
         'preview_text': preview_text,
-        'btn_get_url_report': i18n.button.url.report(),
         'btn_report_project': i18n.button.report.project(),
+        'btn_button_comments': i18n.button.comments(),
         'btn_settings_ya_logins': i18n.button.settings.logins(),
         'btn_list_ya_counters': i18n.button.list.ya.counters(),
         'btn_add_service': i18n.button.add.service(),
         'btn_edit': i18n.button.edit.object(),
         'btn_back': i18n.button.back(),
-        'project_url_link': url_link,
         'report_url': project_url,
         'counters': ya_counters,
         'logins': logins,
         'access': access
+    }
+
+
+async def report_project_getter(dialog_manager: DialogManager,
+                                i18n: TranslatorRunner,
+                                event_from_user: User,
+                                **kwargs):
+    dialog_manager.show_mode = ShowMode.EDIT
+    widget_data = dialog_manager.current_context().widget_data
+
+    project_id = widget_data[WgDataConst.project_id.value]
+
+    web_url = get_project_report(project_id=project_id)
+    link_url = await project_report(project_id=project_id)
+    return {
+        'preview_text': i18n.project.report(),
+        'btn_web_url': i18n.button.report.web.url(),
+        'btn_link_url': i18n.button.report.link.url(),
+        'web_url': web_url,
+        'link_url': link_url,
+        'btn_back': i18n.button.back()
     }
 
 
@@ -129,10 +149,8 @@ async def add_service_getter(dialog_manager: DialogManager,
         logger.error(f'Error deleting message: {e}')
     preview_text = i18n.project.add.services.project()
 
-    access_direct = widget_data.get(WgDataConst.ya_access_direct.value,
-                                    start_data.get(StDataConst.ya_access_direct.value))
-    access_metrika = widget_data.get(WgDataConst.ya_access_metrika.value,
-                                     start_data.get(StDataConst.ya_access_metrika.value))
+    access_direct = widget_data[WgDataConst.ya_access_direct.value]
+    access_metrika = widget_data[WgDataConst.ya_access_metrika.value]
     counters = widget_data.get(WgDataConst.project_connected_counters.value, None)
 
     metrika_in = 1 if access_metrika else None
@@ -150,7 +168,6 @@ async def add_service_getter(dialog_manager: DialogManager,
     btn_add_ya_counters = i18n.button.list.ya.counters() if counters else i18n.button.add.ya.counters()
     return {
         'preview_text': preview_text,
-        'btn_update_status': i18n.button.update.status(),
         'btn_add_ya_logins': i18n.button.add.ya.logins(),
         'btn_add_ya_counters': btn_add_ya_counters,
         'btn_ya_direct_access': i18n.button.ya.access.direct(),

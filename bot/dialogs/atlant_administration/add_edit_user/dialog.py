@@ -89,6 +89,7 @@ card_user_window = Window(
         Format(
             text='{btn_confirm}'
         ),
+        when='confirm',
         id="btn_confirm",
         on_click=btn_confirm,
     ),

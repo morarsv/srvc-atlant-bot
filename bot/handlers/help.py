@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import Router, Bot
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -12,6 +14,7 @@ if TYPE_CHECKING:
     from bot.locales.stub import TranslatorRunner
 
 help_router = Router()
+logger = logging.getLogger(__name__)
 
 
 @help_router.message(Command('help'))

@@ -12,10 +12,9 @@ from bot.lexicon.lexicon_ya import LEXICON_SYSTEM_ID
 from bot.lexicon.constants.constant import (StartDataConstant as StDataConst,
                                             PoolingConstant as poolConst,
                                             WidgetDataConstant as WgDataConst)
-from bot.services.airflow.utils import create_connection_direct, set_active_dag
-from bot.services.airflow.dags_generator.dag_func import generate_dag
-from bot.utils.bot_func import bot_current_time
-from bot.utils.bot_func import alert_msg_to_chat
+from bot.services.airflow.utils import create_connection_direct
+from bot.services.msvc.generator import func
+from bot.utils.bot_func import bot_current_time, alert_msg_to_chat, get_session_data
 from bot.lexicon.lexicon_tg import LEXICON_TG_BOT
 
 if TYPE_CHECKING:
@@ -34,6 +33,10 @@ async def btn_confirm(callback: CallbackQuery,
 
     i18n: TranslatorRunner = middleware_data[poolConst.i18n.value]
     project_id = int(start_data[StDataConst.project_id.value])
+    tg_id = int(callback.from_user.id)
+
+    _, _, _, _, company_id, company_name = get_session_data(tg_id=tg_id,
+                                                            dialog_manager=dialog_manager)
 
     ya_accesses: YandexAccesses = await query.get_ya_accesses_by_project_and_system_id(
         p_id=project_id,
@@ -49,7 +52,6 @@ async def btn_confirm(callback: CallbackQuery,
 
         start_date: str = str(project.created_at)
         project_title: str = project.title
-        company_name: str = project.company.company
         list_logins = ''
         request = []
         for login in widget_data[WgDataConst.item.value]:
@@ -72,29 +74,22 @@ async def btn_confirm(callback: CallbackQuery,
                                             time=time) for login in widget_data[WgDataConst.item.value]]
         await asyncio.gather(*request)
         await alert_msg_to_chat(chat_id=_chat_alert_id,
-                                callback=callback,
                                 msg=i18n.alert.added.ya.direct.login(
                                     title=project_title,
                                     company=company_name
                                 ),
                                 logger=logger)
-        try:
-            await generate_dag(logger=logger,
-                               project_title=project_title,
-                               project_id=project_id,
-                               company_name=company_name,
-                               start_date=start_date,
-                               callback=callback
-                               )
-        except Exception as e:
-            logger.exception(f"Ошибка при генерации дага на стророне микросервиса: {e}")
-        await set_active_dag(logger=logger,
-                             company=company_name,
-                             project_id=str(project_id),
-                             company_id=project.company_id,
-                             created_date=start_date,
-                             i18n=i18n,
-                             callback=callback)
+        asyncio.create_task(func.generate_dag(logger=logger,
+                                              project_title=project_title,
+                                              project_id=project_id,
+                                              company_name=company_name,
+                                              start_date=start_date
+                                              ))
+        asyncio.create_task(func.generate_dbt_direct(
+            logger=logger,
+            company_id=company_id,
+            company_name=company_name
+        ))
         await callback.answer(i18n.successfully.added())
         await dialog_manager.done(show_mode=ShowMode.EDIT)
 

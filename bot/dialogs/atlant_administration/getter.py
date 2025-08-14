@@ -15,11 +15,13 @@ async def preview_getter(dialog_manager: DialogManager,
                          i18n: TranslatorRunner,
                          event_from_user: User,
                          **kwargs):
+    preview_text = i18n.atlant.admin.preview() + '\n\n' + i18n.atlant.admin.regenerate.dbt()
     return {
-        'preview_text': i18n.atlant.admin.preview(),
+        'preview_text': preview_text,
         'btn_add_company': i18n.button.add.company(),
         'btn_add_user': i18n.button.add.user(),
         'btn_list_company': i18n.button.list.companies(),
+        'btn_regenerate_dbt': i18n.button.regenerate.dbt(),
         'btn_back': i18n.button.back()
     }
 
@@ -68,12 +70,13 @@ async def card_company_getter(dialog_manager: DialogManager,
         count_users=len(users),
         count_projects=len(projects),
         created_at=company_created
-    )
+    ) + '\n\n' + i18n.atlant.admin.regenerate.yaml()
 
     return {
         'preview_text': preview_text,
         'btn_list_users': i18n.button.list.users(),
         'btn_list_projects': i18n.button.list.projects(),
+        'btn_regenerate_yaml': i18n.button.regenerate.yaml(),
         'btn_back': i18n.button.back(),
         'users': users,
         'projects': projects

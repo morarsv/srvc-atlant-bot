@@ -1,7 +1,10 @@
+import asyncio
 import logging
+from typing import TYPE_CHECKING
 from aiogram_dialog.widgets.kbd import Button
 from aiogram.types import CallbackQuery
 from aiogram_dialog import DialogManager, ShowMode, StartMode
+from fluentogram import TranslatorRunner
 from bot.database import query
 from bot.lexicon.constants.constant import (WidgetDataConstant as WgDataConst,
                                             StartDataConstant as StDataConst,
@@ -9,14 +12,11 @@ from bot.lexicon.constants.constant import (WidgetDataConstant as WgDataConst,
 from bot.lexicon.lexicon_ya import LEXICON_SYSTEM_ID, LEXICON_ATTRIBUTION
 from bot.lexicon.lexicon_tg import LEXICON_TG_BOT
 from bot.services.yandex.utils import get_ya_goals, get_ya_counters
-from bot.database.models import YandexAccesses, YaMetrikaCounters, Projects, Users
+from bot.database.models import YandexAccesses, YaMetrikaCounters, Projects
 from bot.state.dialog_state import YaMetrikaCountersEditAddSG, ProjectsSG
-from bot.services.airflow.utils import create_connection_metrika, set_active_dag
-from bot.services.airflow.dags_generator.dag_func import generate_dag
-from bot.utils.bot_func import bot_current_time
-from fluentogram import TranslatorRunner
-from typing import TYPE_CHECKING
-from bot.utils.bot_func import alert_msg_to_chat
+from bot.services.airflow.utils import create_connection_metrika
+from bot.services.msvc.generator import func
+from bot.utils.bot_func import bot_current_time, get_session_data, alert_msg_to_chat
 
 if TYPE_CHECKING:
     from bot.locales.stub import TranslatorRunner
@@ -218,12 +218,14 @@ async def btn_confirm(callback: CallbackQuery,
     project_id = int(start_data[StDataConst.project_id.value])
     i18n: TranslatorRunner = middleware_data[poolConst.i18n.value]
 
-    await callback.answer(text=i18n.pls.wait(), show_alert=True)
+    tg_id = int(callback.from_user.id)
+    _, _, role_id, user_uuid, company_id, company_name = get_session_data(tg_id=tg_id,
+                                                                          dialog_manager=dialog_manager)
 
     counter_id = widget_data[WgDataConst.counter_id.value]
     counter_name = widget_data[WgDataConst.counter_name.value]
     counter_attribution = widget_data[WgDataConst.counter_attribution.value]
-    counter_minor_attribution = int(widget_data[WgDataConst.counter_minor_attribution.value]) if \
+    counter_minor_attribution = widget_data[WgDataConst.counter_minor_attribution.value] if \
         widget_data[WgDataConst.counter_minor_attribution.value] != 'None' else None
 
     selected_k_goals_names = widget_data[WgDataConst.selected_counter_k_goals_names.value]
@@ -260,7 +262,6 @@ async def btn_confirm(callback: CallbackQuery,
         s_id=LEXICON_SYSTEM_ID['YA_METRIKA']
     )
     project: Projects = await query.get_project_by_id(project_id=project_id)
-    company_name: str = project.company.company
     project_title: str = project.title
     start_date: str = str(project.created_at)
     time: str = await bot_current_time()
@@ -276,7 +277,6 @@ async def btn_confirm(callback: CallbackQuery,
 
     if status_first:
         await alert_msg_to_chat(chat_id=_chat_alert_id,
-                                callback=callback,
                                 msg=i18n.alert.added.ya.metrika.counters(
                                     title=project_title,
                                     company=company_name,
@@ -287,7 +287,6 @@ async def btn_confirm(callback: CallbackQuery,
     elif status_old_object:
         metrika_counter_id = int(start_data[StDataConst.project_counter_id.value])
         await alert_msg_to_chat(chat_id=_chat_alert_id,
-                                callback=callback,
                                 msg=i18n.alert.edited.ya.metrika.counters(
                                     title=project_title,
                                     company=company_name,
@@ -297,7 +296,6 @@ async def btn_confirm(callback: CallbackQuery,
                                               metrika=ya_counter)
     else:
         await alert_msg_to_chat(chat_id=_chat_alert_id,
-                                callback=callback,
                                 msg=i18n.alert.added.ya.metrika.counters(
                                     title=project_title,
                                     company=company_name,
@@ -306,51 +304,21 @@ async def btn_confirm(callback: CallbackQuery,
                                 logger=logger)
         await query.add_ya_metrik_counter(ya_metrika_counter=ya_counter)
 
-    try:
-        await generate_dag(logger=logger,
-                           project_title=project_title,
-                           project_id=project_id,
-                           company_name=company_name,
-                           start_date=start_date,
-                           callback=callback)
-    except Exception as e:
-        logger.exception(f"Ошибка при генерации дага на стророне микросервиса: {e}")
-    await set_active_dag(logger=logger,
-                         company=company_name,
-                         project_id=str(project_id),
-                         company_id=project.company_id,
-                         created_date=start_date,
-                         i18n=i18n,
-                         callback=callback)
-
-    tg_id = int(callback.from_user.id)
-    user: Users = await query.get_user_by_tg_id(tg_id=tg_id)
-    list_projects: list[Projects] = await query.get_list_projects_by_user_uuid(user_uuid=user.id)
-
-    projects = [(p.title, p.id) for p in list_projects]
-    ya_access_metrika: YandexAccesses = await query.get_ya_accesses_by_project_and_system_id(
-        p_id=project_id,
-        s_id=LEXICON_SYSTEM_ID['YA_METRIKA']
-    )
-    ya_access_direct: YandexAccesses = await query.get_ya_accesses_by_project_and_system_id(
-        p_id=project_id,
-        s_id=LEXICON_SYSTEM_ID['YA_DIRECT']
-    )
-
-    access_metrika = True if ya_access_metrika else False
-    access_direct = True if ya_access_direct else False
-
+    asyncio.create_task(func.generate_dag(logger=logger,
+                                          project_title=project_title,
+                                          project_id=project_id,
+                                          company_name=company_name,
+                                          start_date=start_date))
+    asyncio.create_task(func.generate_dbt_metrika(
+        logger=logger,
+        company_id=company_id,
+        company_name=company_name
+    ))
     await dialog_manager.start(
         show_mode=ShowMode.EDIT,
-        state=ProjectsSG.ADD_SERVICE,
+        state=ProjectsSG.INFO_PROJECT,
         mode=StartMode.RESET_STACK,
         data={
-            StDataConst.user_uuid.value: str(user.id),
-            StDataConst.list_projects.value: projects,
-            StDataConst.user_role_id.value: user.role_id,
-            StDataConst.project_id.value: project_id,
-            StDataConst.ya_access_metrika.value: access_metrika,
-            StDataConst.ya_access_direct.value: access_direct,
-            StDataConst.project_title.value: project_title
+            StDataConst.project_id.value: project_id
         }
     )

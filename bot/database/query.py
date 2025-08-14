@@ -1,7 +1,8 @@
-from sqlalchemy import select, func, update, insert, delete as alchemy_delete
+from sqlalchemy import select, func, update, and_, delete as alchemy_delete
 from bot.database.models import (async_session, Users, Companies, Projects, ProjectUser, ProjectReport,
-                                 YandexAccesses, YaDirectLogins, YaMetrikaCounters, ManagerViewer)
+                                 YandexAccesses, YaDirectLogins, YaMetrikaCounters, ManagerViewer, ProjectComment)
 from uuid import UUID
+from datetime import datetime
 
 
 # Профили и юзеры
@@ -64,11 +65,11 @@ async def add_user(user: Users) -> None:
 async def deactivate_user_by_login(login: str, user_uuid: UUID) -> None:
     async with async_session() as session:
         stmt = (update(Users).
-                where(login == Users.login).
-                values(
-                    active=False,
-                    tg_id=None)
-                )
+        where(login == Users.login).
+        values(
+            active=False,
+            tg_id=None)
+        )
         await session.execute(stmt)
         stmt = (alchemy_delete(ProjectUser).
                 where(ProjectUser.user_id == user_uuid))
@@ -208,7 +209,7 @@ async def get_company_by_name(name: str) -> Companies:
 
 
 # Проекты
-async def add_project_and_report_and_set_manager(project: Projects, user_id: UUID) -> None:
+async def add_project_and_comment_and_report_and_set_manager(project: Projects, user_id: UUID) -> None:
     async with async_session() as session:
         session.add(project)
         await session.flush()
@@ -217,6 +218,12 @@ async def add_project_and_report_and_set_manager(project: Projects, user_id: UUI
         project_report.project_id = project.id
         project_user.project_id = project.id
         project_user.user_id = user_id
+        comment = ProjectComment()
+        comment.project_id = project.id
+        comment.project_title = project.title
+        comment.comment = 'First comment'
+        comment.specified_date = project.created_at
+        session.add(comment)
         session.add(project_user)
         session.add(project_report)
         await session.commit()
@@ -394,7 +401,7 @@ async def get_ya_m_list_counters_by_p_id(project_id: int) -> list[YaMetrikaCount
     async with async_session() as session:
         result = await session.scalars(select(YaMetrikaCounters).where(
             YaMetrikaCounters.project_id == project_id
-        ))
+        ).order_by(YaMetrikaCounters.counter_name.asc()))
         return result.all()
 
 
@@ -439,6 +446,13 @@ async def get_ya_active_d_logins_names_by_p_id(p_id: int) -> list[str]:
         return result.all()
 
 
+async def get_ya_all_d_logins_names_by_p_id(p_id: int) -> list[str]:
+    async with async_session() as session:
+        stmt = (select(YaDirectLogins.direct_login).where(YaDirectLogins.project_id == p_id))
+        result = await session.scalars(stmt)
+        return result.all()
+
+
 # Project User
 async def set_user_to_project(project_user: ProjectUser) -> None:
     async with async_session() as session:
@@ -458,7 +472,7 @@ async def get_list_managers_by_p_id(project_id: int) -> list[Users]:
             Users.role_id != 4,
             Users.id.in_(
                 select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
-        )))
+            )))
         result = await session.scalars(stmt)
         return result.all()
 
@@ -467,7 +481,7 @@ async def get_available_managers_by_p_id(project_id: int, company_id: int) -> li
     async with async_session() as session:
         stmt = (select(Users).
                 where(Users.company_id == company_id, Users.active, Users.role_id != 4, ~Users.id.in_(
-                    select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
+            select(ProjectUser.user_id).where(ProjectUser.project_id == project_id)
         )))
         result = await session.scalars(stmt)
         return result.all()
@@ -514,6 +528,96 @@ async def get_available_projects_for_viewer(manager_uuid: UUID, viewer_uuid: UUI
         return result.all()
 
 
+async def get_projects_ids_by_user_without_direct(user_uuid: UUID) -> list[int]:
+    async with async_session() as session:
+        stmt = (
+            select(ProjectUser.project_id)
+            .join(YaMetrikaCounters, YaMetrikaCounters.project_id == ProjectUser.project_id)
+            .outerjoin(YaDirectLogins, YaDirectLogins.project_id == ProjectUser.project_id)
+            .where(ProjectUser.user_id == user_uuid)
+            .group_by(ProjectUser.project_id)
+            .having(
+                and_(
+                    func.count(YaDirectLogins.direct_login) == 0,
+                    func.count(YaMetrikaCounters.counter_id) > 0
+                )
+            )
+        )
+        result = await session.scalars(stmt)
+        return result.all()
+
+
+async def get_projects_title_by_ids(ids: list[int]) -> list[str]:
+    async with async_session() as session:
+        stmt = (
+            select(Projects.title).
+            where(Projects.id.in_(ids))
+        )
+        result = await session.scalars(stmt)
+        return result.all()
+
+
 async def get_report_project(project_id: int) -> str:
     async with async_session() as session:
         return await session.scalar(select(ProjectReport.report_url).where(ProjectReport.project_id == project_id))
+
+
+async def get_report_company(company_id: int) -> str | None:
+    async with async_session() as session:
+        return await session.scalar(select(Companies.report).where(Companies.id == company_id))
+
+
+async def get_comment_by_id(comment_id: int) -> ProjectComment:
+    async with async_session() as session:
+        return await session.scalar(select(ProjectComment).where(ProjectComment.id == comment_id))
+
+
+async def update_comment_by_id(comment_id: int,
+                               project_id: int,
+                               project_title: str,
+                               comment: str,
+                               specified_date: str) -> None:
+    async with async_session() as session:
+        specified_date = datetime.strptime(specified_date, "%d-%m-%Y")
+        stmt = (
+            update(ProjectComment).
+            where(ProjectComment.id == comment_id).
+            values(
+                project_id=project_id,
+                project_title=project_title,
+                comment=comment,
+                specified_date=specified_date
+            )
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+
+async def add_comment(project_id: int,
+                      project_title: str,
+                      comment: str,
+                      specified_date: str) -> None:
+    async with async_session() as session:
+        specified_date = datetime.strptime(specified_date, "%d-%m-%Y")
+        c = ProjectComment()
+        c.project_id = project_id
+        c.project_title = project_title
+        c.comment = comment
+        c.specified_date = specified_date
+        session.add(c)
+        await session.commit()
+
+
+async def get_comment_id_by_comment_and_date(comment: str, specified_date: str, project_id: int) -> int:
+    async with async_session() as session:
+        return session.scalar(select(ProjectComment.id).where(ProjectComment.comment == comment,
+                                                              ProjectComment.specified_date == specified_date,
+                                                              ProjectComment.project_id == project_id))
+
+
+async def get_list_comments_by_project_id(project_id: int) -> list[ProjectComment]:
+    async with (async_session() as session):
+        stmt = (select(ProjectComment).where(ProjectComment.project_id == project_id)
+                .order_by(ProjectComment.specified_date.desc()))
+        result = await session.scalars(stmt)
+        return result.all()

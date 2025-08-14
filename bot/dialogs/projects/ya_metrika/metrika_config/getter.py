@@ -72,11 +72,13 @@ async def minor_attribution_getter(dialog_manager: DialogManager,
                                    **kwargs):
     widget_data = dialog_manager.current_context().widget_data
     attribution = widget_data[WgDataConst.list_m_attributions.value]
+    selected = 1 if widget_data.get(WgDataConst.selected_minor_attribution.value) else None
     return {
         'attribution': attribution,
         'attribution_text': i18n.project.ya.metrika.config.m.attribution(),
         'btn_continue': i18n.button.next(),
-        'btn_back': i18n.button.back()
+        'btn_back': i18n.button.back(),
+        'selected': selected
     }
 
 

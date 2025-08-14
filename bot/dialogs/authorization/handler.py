@@ -11,6 +11,7 @@ from bot.lexicon.constants.constant import (StartDataConstant as StDataConst,
 from bot.database.models import Users
 from bot.support_models.models import SupportSessionUser
 from bot.state.dialog_state import AuthorizationSG, StartSG
+from bot.utils.bot_func import clean_text
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -62,10 +63,16 @@ async def success_input_password(message: Message,
 
     online_users: dict[int, SupportSessionUser] = middleware_data[poolConst.online_users.value]
     tg_id = int(message.from_user.id)
-
-    await message.delete()
+    try:
+        await message.delete()
+    except AttributeError as e:
+        logger.error(f'Error deleting message: {e}')
     login: str = widget_data.get(dDataConst.input_login.value)
     password: str = widget_data.get(dDataConst.input_password.value)
+
+    login = clean_text(login)
+    password = clean_text(password)
+
     user: Users = await query.get_user_by_login(
         login=login.lower()
     )

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from aiogram_dialog.widgets.input import ManagedTextInput
@@ -7,6 +8,7 @@ from aiogram_dialog.widgets.kbd import Button
 from bot.database.models import Companies
 from bot.database import query
 from bot.services.web_reports.utils import web_add_company
+from bot.services.msvc.generator import func
 from bot.state.dialog_state import AtlantAdministrationAddCompanySG, AtlantAdministrationEditAddUserSG
 from fluentogram import TranslatorRunner
 from bot.lexicon.constants.constant import (StartDataConstant as StDataConst,
@@ -26,7 +28,10 @@ async def err_format_company(message: Message,
                              error: ValueError):
     await dialog_manager.switch_to(state=AtlantAdministrationAddCompanySG.INPUT_COMPANY,
                                    show_mode=ShowMode.EDIT)
-    await message.delete()
+    try:
+        await message.delete()
+    except AttributeError as e:
+        logger.error(f'Error deleting message: {e}')
 
 
 async def next_or_end_company(message: Message,
@@ -36,7 +41,11 @@ async def next_or_end_company(message: Message,
     widget_data = dialog_manager.current_context().widget_data
     company_name = text
     company: Companies = await query.get_company_by_name(name=company_name)
-    await message.delete()
+    try:
+        await message.delete()
+    except AttributeError as e:
+        logger.error(f'Error deleting message: {e}')
+
     if company is not None:
         widget_data[WgDataConst.err_uniq_company.value] = True
         await dialog_manager.switch_to(state=AtlantAdministrationAddCompanySG.INPUT_COMPANY,
@@ -60,6 +69,12 @@ async def btn_confirm(callback: CallbackQuery,
     company.company = company_name
 
     await query.create_company(company=company)
+    company: Companies = await query.get_company_by_name(name=company_name)
+    asyncio.create_task(func.generate_dbt_company(
+        logger=logger,
+        company_id=company.id,
+        company_name=company_name
+    ))
     await web_add_company(
         logger=logger,
         company_name=company_name,

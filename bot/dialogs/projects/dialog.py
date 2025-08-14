@@ -8,10 +8,10 @@ from bot.state.dialog_state import ProjectsSG
 from bot.middlewares.authorization_monitor import AuthorizationMiddleware
 from bot.middlewares.message_monitor import MessageMonitorMiddleware
 from bot.dialogs.projects.getter import (preview_getter, list_projects_getter, info_project_getter,
-                                         add_service_getter, ya_access_getter)
-from bot.dialogs.projects.handler import (btn_add_project, btn_back, btn_switch_to_project,
+                                         add_service_getter, ya_access_getter, report_project_getter)
+from bot.dialogs.projects.handler import (btn_add_project, btn_back, btn_switch_to_project, btn_button_comments,
                                           btn_settings_ya_logins, btn_settings_ya_counters,
-                                          btn_edit_project, btn_update_list_project, btn_update_status,
+                                          btn_edit_project, btn_update_list_project, update_status,
                                           btn_add_ya_logins, btn_add_ya_counters, switch_to_service,
                                           btn_ya_metrika_access, btn_ya_direct_access)
 
@@ -84,14 +84,18 @@ info_project_window = Window(
     Format(
         text="{preview_text}"
     ),
-    Url(
-        text=Format(text='{btn_get_url_report}'),
-        url=Format(text='{project_url_link}'),
-        when='project_url_link'
-    ),
-    WebApp(
+    SwitchTo(
         text=Format(text='{btn_report_project}'),
-        url=Format(text='{report_url}')
+        id='btn_report_project',
+        state=ProjectsSG.REPORT,
+    ),
+    Button(
+        text=Format(
+            text='{btn_button_comments}'
+        ),
+        id='btn_button_comments',
+        on_click=btn_button_comments,
+        when='access'
     ),
     Button(
         text=Format(
@@ -139,16 +143,33 @@ info_project_window = Window(
     state=ProjectsSG.INFO_PROJECT
 )
 
+project_report_window = Window(
+    Format(
+        text="{preview_text}"
+    ),
+    Url(
+        text=Format(text='{btn_link_url}'),
+        url=Format(text='{link_url}'),
+        when='link_url'
+    ),
+    WebApp(
+        text=Format(text='{btn_web_url}'),
+        url=Format(text='{web_url}')
+    ),
+    SwitchTo(
+        text=Format(
+            text='{btn_back}'
+        ),
+        id='btn_back_r',
+        state=ProjectsSG.INFO_PROJECT
+    ),
+    getter=report_project_getter,
+    state=ProjectsSG.REPORT
+)
+
 add_service_window = Window(
     Format(
         text='{preview_text}'
-    ),
-    Button(
-        text=Format(
-            text='{btn_update_status}'
-        ),
-        id='btn_update_status',
-        on_click=btn_update_status
     ),
     Button(
         text=Format(
@@ -197,8 +218,9 @@ ya_access_window = Window(
     ),
     Back(
         text=Format(
-            text='{btn_back}'
+            text='{btn_back}',
         ),
+        on_click=update_status
     ),
     getter=ya_access_getter,
     state=ProjectsSG.YA_ACCESS
@@ -206,7 +228,8 @@ ya_access_window = Window(
 
 
 project_dialog = Dialog(
-    preview_window, list_projects_window, info_project_window, add_service_window, ya_access_window
+    preview_window, list_projects_window, info_project_window, add_service_window, ya_access_window,
+    project_report_window
 )
 
 project_dialog.message.middleware(AuthorizationMiddleware())

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 from aiogram.types import CallbackQuery
@@ -5,10 +6,11 @@ from aiogram_dialog import DialogManager, StartMode, ShowMode
 from aiogram_dialog.widgets.kbd import Button
 
 from bot.database import query
-from bot.database.models import Projects, Users, Companies, YaDirectLogins, YaMetrikaCounters
+from bot.database.models import Projects, Users, Companies
 from bot.state.dialog_state import (AtlantAdministrationAddCompanySG, AtlantAdministrationEditAddUserSG,
                                     AtlantAdministrationProjectSG, AtlantAdministrationUserSG,
                                     AtlantAdministrationSG)
+from bot.services.msvc.generator import func
 from bot.lexicon.constants.constant import (WidgetDataConstant as WgDataConst,
                                             StartDataConstant as StDataConst,
                                             WordConst as WConst)
@@ -28,6 +30,14 @@ async def btn_add_company(callback: CallbackQuery,
     await dialog_manager.start(mode=StartMode.NORMAL,
                                show_mode=ShowMode.EDIT,
                                state=AtlantAdministrationAddCompanySG.INPUT_COMPANY)
+
+
+async def btn_regenerate_dbt(callback: CallbackQuery,
+                             button: Button,
+                             dialog_manager: DialogManager) -> None:
+    asyncio.create_task(func.regenerate_dbt(
+        logger=logger
+    ))
 
 
 async def btn_add_user(callback: CallbackQuery,
@@ -97,6 +107,19 @@ async def btn_switch_to_company(callback: CallbackQuery,
 
     await dialog_manager.switch_to(state=AtlantAdministrationSG.CARD_COMPANY,
                                    show_mode=ShowMode.EDIT)
+
+
+async def btn_regenerate_yaml(callback: CallbackQuery,
+                              button: Button,
+                              dialog_manager: DialogManager) -> None:
+    widget_data = dialog_manager.current_context().widget_data
+    company_name = widget_data[WgDataConst.company_name.value]
+    company_id = widget_data[WgDataConst.company_id.value]
+    asyncio.create_task(func.regenerate_dag(
+        logger=logger,
+        company_id=company_id,
+        company_name=company_name
+    ))
 
 
 async def btn_switch_to_user(callback: CallbackQuery,

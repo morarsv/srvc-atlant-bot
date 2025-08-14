@@ -9,6 +9,7 @@ class TranslatorRunner:
     atlant: Atlant
     project: Project
     viewers: Viewers
+    comment: Comment
     company: Company
     connect: Connect
     input: Input
@@ -52,11 +53,13 @@ class AuthorizationInput:
     def password() -> Literal["""Введите пароль:"""]: ...
 
     @staticmethod
-    def login() -> Literal["""Ведите логин:"""]: ...
+    def login() -> Literal["""Введите логин:"""]: ...
 
 
 class Start:
     preview: StartPreview
+    project: StartProject
+    company: StartCompany
 
 
 class StartPreview:
@@ -82,6 +85,26 @@ class StartPreview:
 &lt;b&gt;Управление аккаунтами зрителей&lt;/b&gt; - предоставляет инструменты для настройки доступов зрителей к проектам, просмотра их прав и редактирования разрешений."""]: ...
 
 
+class StartProject:
+    @staticmethod
+    def attention() -> Literal["""&lt;b&gt;⚠️ Внимание!&lt;/b&gt; Есть некоторые проблемы с проектами."""]: ...
+
+    @staticmethod
+    def problem(*, projects) -> Literal["""В следующих &lt;b&gt;проектах&lt;/b&gt; отсутствует подключение логинов Директа:&lt;b&gt; { $projects }&lt;/b&gt;.
+
+Это не позволяет сформировать отчет по данным проектам.
+Пожалуйста, подключите логины Директа для корректной работы отчётности."""]: ...
+
+
+class StartCompany:
+    @staticmethod
+    def report() -> Literal["""Выберите удобный для вас способ получения отчёта.
+
+&lt;b&gt;Ссылка на отчёт&lt;/b&gt; — позволяет скопировать простую ссылку или открыть отчёт в браузере без дополнительной авторизации.
+
+&lt;b&gt;Отчёт в web-версии&lt;/b&gt; — предоставляет доступ к отчёту через наш web-сервис, потребуется авторизация."""]: ...
+
+
 class Atlant:
     admin: AtlantAdmin
 
@@ -91,6 +114,7 @@ class AtlantAdmin:
     add: AtlantAdminAdd
     info: AtlantAdminInfo
     company: AtlantAdminCompany
+    regenerate: AtlantAdminRegenerate
 
     @staticmethod
     def preview() -> Literal["""&lt;b&gt;Добавить компанию&lt;/b&gt; - создает компанию и добавляет в базу данных.
@@ -204,13 +228,29 @@ class AtlantAdminAddCompany:
 &lt;b&gt;Добавить пользователя&lt;/b&gt; - добавляет пользователя в роли &lt;b&gt;admin&lt;/b&gt; и закрепляет его за данной компанией."""]: ...
 
 
+class AtlantAdminRegenerate:
+    @staticmethod
+    def dbt() -> Literal["""&lt;b&gt;Пересобрать DBT&lt;/b&gt; - Перезапись всех dbt моделей, по всем компаниям."""]: ...
+
+    @staticmethod
+    def yaml() -> Literal["""&lt;b&gt;Пересобрать DAG&lt;/b&gt; - Перезапись yaml файлов, по текущей компании."""]: ...
+
+
 class Project:
     preview: ProjectPreview
     list: ProjectList
+    comment: ProjectComment
     info: ProjectInfo
     add: ProjectAdd
     ya: ProjectYa
     direct: ProjectDirect
+
+    @staticmethod
+    def report() -> Literal["""Выберите удобный для вас способ получения отчёта.
+
+&lt;b&gt;Ссылка на отчёт&lt;/b&gt; — позволяет скопировать простую ссылку или открыть отчёт в браузере без дополнительной авторизации.
+
+&lt;b&gt;Отчёт в web-версии&lt;/b&gt; — предоставляет доступ к отчёту через наш web-сервис, потребуется авторизация."""]: ...
 
 
 class ProjectPreview:
@@ -235,6 +275,11 @@ class ProjectList:
     @staticmethod
     def projects() -> Literal["""Просмотрите все созданные проекты и выберите &lt;b&gt;нужный&lt;/b&gt;.
 Нажмите на проект, чтобы открыть карточку для просмотра."""]: ...
+
+
+class ProjectComment:
+    @staticmethod
+    def list() -> Literal["""&lt;b&gt;Коментарии к проекту&lt;/b&gt; — предоставляет доступ к просмотру всех комментариев прикреплённых к проекту и добавлению комментариев, связанных с проектом."""]: ...
 
 
 class ProjectInfo:
@@ -277,7 +322,9 @@ class ProjectYa:
 
 🔹 Через веб-браузер — перейдите по предоставленной ссылке и выполните необходимые действия.
 
-🔹 Через Telegram Web — откройте соответствующее уведомление и следуйте инструкции."""]: ...
+🔹 Через Telegram Web — откройте соответствующее уведомление и следуйте инструкции.
+
+После передачи доступа нажмите ◀️ &lt;b&gt;Назад&lt;/b&gt;, а затем подключите нужный сервис, &lt;b&gt;добавьте директ логины&lt;/b&gt; или &lt;b&gt;добавьте счётчик метрики&lt;/b&gt;."""]: ...
 
 
 class ProjectYaDirect:
@@ -350,7 +397,7 @@ class ProjectYaDirectAddRepresentativeDescription:
 
 class ProjectYaDirectAddRequest:
     @staticmethod
-    def error(*, code, detail) -> Literal["""При запросе возникла ошибка, обратитесь в помощь для её решения проблемы.
+    def error(*, code, detail) -> Literal["""При запросе возникла ошибка, обратитесь в помощь для решения проблемы.
 
 Код ошибки: { $code }
 Детали: { $detail }"""]: ...
@@ -472,9 +519,7 @@ class ProjectYaMetrikaConfigEditNotice:
 
 class ProjectYaMetrikaConfigM:
     @staticmethod
-    def attribution() -> Literal["""Выберите ✅ дополнительную атрибуцию из предложенного списка.
-
-Если отсутствует необходимость выбора, можете пропустить данный шаг нажав на кнопку &lt;b&gt;Продолжить&lt;/b&gt;."""]: ...
+    def attribution() -> Literal["""Выберите ✅ дополнительную атрибуцию из предложенного списка."""]: ...
 
 
 class ProjectYaMetrikaButton:
@@ -571,7 +616,7 @@ class ViewersList:
 
 class ViewersSettings:
     @staticmethod
-    def projects() -> Literal["""Отметьте один или несколько проектов из данного списка для отзыва доступа на просмотр.
+    def projects() -> Literal["""Отметьте один или несколько проектов из списка для изменения доступа на просмотр.
 После &lt;b&gt;подтверждения&lt;/b&gt; изменения вступят в силу."""]: ...
 
 
@@ -587,6 +632,44 @@ class ViewersAddInfo:
 &lt;b&gt;Уровень доступа:&lt;/b&gt; viewer
 &lt;b&gt;Логин:&lt;/b&gt; &lt;span class=&#34;tg-spoiler&#34;&gt; { $login } &lt;/span&gt;
 &lt;b&gt;Пароль:&lt;/b&gt; &lt;span class=&#34;tg-spoiler&#34;&gt; { $password } &lt;/span&gt;"""]: ...
+
+
+class Comment:
+    input: CommentInput
+
+    @staticmethod
+    def default() -> Literal["""Проект создан!"""]: ...
+
+    @staticmethod
+    def preview() -> Literal["""Выберите комментарий из списка для просмотра или изменения."""]: ...
+
+    @staticmethod
+    def add() -> Literal["""&lt;b&gt;Добавить комментарий&lt;/b&gt; — позволяет ввести текст комментария и выбрать дату."""]: ...
+
+    @staticmethod
+    def info(*, comment, date) -> Literal["""&lt;b&gt;Комментарий:&lt;/b&gt;
+{ $comment }
+&lt;b&gt;Дата:&lt;/b&gt; { $date }
+
+&lt;b&gt;Изменить комментарий&lt;/b&gt; — предоставляет возможность изменить текст комментария и дату."""]: ...
+
+
+class CommentInput:
+    err: CommentInputErr
+
+    @staticmethod
+    def text() -> Literal["""Введите комментарий к проекту."""]: ...
+
+    @staticmethod
+    def date(*, date) -> Literal["""Введите дату в формате: день месяц год.
+Пример: 30 01 2025
+
+&lt;b&gt;Обратите внимание:&lt;/b&gt; дата не может быть раньше { $date }."""]: ...
+
+
+class CommentInputErr:
+    @staticmethod
+    def date() -> Literal["""Неверный формат даты или дата указана вне допустимого диапазона."""]: ...
 
 
 class Company:
@@ -859,7 +942,7 @@ class HelpInput:
 
 class HelpApplication:
     @staticmethod
-    def form(*, username, company_name, datetime) -> Literal["""&lt;b&gt;Пользователя:&lt;/b&gt; { $username }
+    def form(*, username, company_name, datetime) -> Literal["""&lt;b&gt;Пользователь:&lt;/b&gt; { $username }
 &lt;b&gt;Компания:&lt;/b&gt; { $company_name }
 &lt;b&gt;Время заявки:&lt;/b&gt; { $datetime }
 Запрос на создания кабинета."""]: ...
@@ -937,6 +1020,7 @@ class Button:
     delete: ButtonDelete
     edit: ButtonEdit
     filled: ButtonFilled
+    regenerate: ButtonRegenerate
     remove: ButtonRemove
     report: ButtonReport
     select: ButtonSelect
@@ -971,6 +1055,9 @@ class Button:
     def confirm() -> Literal["""Подтвердить"""]: ...
 
     @staticmethod
+    def comments() -> Literal["""Коментарии к проекту"""]: ...
+
+    @staticmethod
     def login() -> Literal["""Войти"""]: ...
 
     @staticmethod
@@ -994,6 +1081,9 @@ class Button:
     @staticmethod
     def yes() -> Literal["""Да"""]: ...
 
+    @staticmethod
+    def attention() -> Literal["""⚠️ Внимание!"""]: ...
+
 
 class ButtonAdd:
     ya: ButtonAddYa
@@ -1006,6 +1096,9 @@ class ButtonAdd:
 
     @staticmethod
     def company() -> Literal["""Добавить компанию"""]: ...
+
+    @staticmethod
+    def comment() -> Literal["""Добавить коментарий"""]: ...
 
     @staticmethod
     def user() -> Literal["""Добавить пользователя"""]: ...
@@ -1052,6 +1145,9 @@ class ButtonEdit:
     def password() -> Literal["""Сменить пароль"""]: ...
 
     @staticmethod
+    def comment() -> Literal["""Редактировать коментарий"""]: ...
+
+    @staticmethod
     def counter() -> Literal["""Изменить счётчик"""]: ...
 
     @staticmethod
@@ -1063,17 +1159,38 @@ class ButtonFilled:
     def application() -> Literal["""Заполнить заявку"""]: ...
 
 
+class ButtonRegenerate:
+    @staticmethod
+    def dbt() -> Literal["""Пересобрать DBT"""]: ...
+
+    @staticmethod
+    def yaml() -> Literal["""Пересобрать DAG"""]: ...
+
+
 class ButtonRemove:
     @staticmethod
     def manager() -> Literal["""Отстранить менеджера"""]: ...
 
 
 class ButtonReport:
+    link: ButtonReportLink
+    web: ButtonReportWeb
+
     @staticmethod
     def company() -> Literal["""Отчёт компании"""]: ...
 
     @staticmethod
     def project() -> Literal["""Отчёт проекта"""]: ...
+
+
+class ButtonReportLink:
+    @staticmethod
+    def url() -> Literal["""Ссылка на отчёт"""]: ...
+
+
+class ButtonReportWeb:
+    @staticmethod
+    def url() -> Literal["""Отчёт в web-версии"""]: ...
 
 
 class ButtonSelect:

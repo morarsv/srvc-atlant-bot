@@ -2,8 +2,8 @@ import asyncio
 import logging
 import os
 import pytz
-from typing import Optional
 
+from typing import Optional
 from asyncio.exceptions import CancelledError
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -34,6 +34,7 @@ from bot.dialogs.atlant_administration.add_company.dialog import atlant_administ
 from bot.dialogs.atlant_administration.user.dialog import atlant_administration_user_dialog
 from bot.dialogs.atlant_administration.project.dialog import atlant_administration_project_dialog
 from bot.dialogs.projects.dialog import project_dialog
+from bot.dialogs.projects.comment.dialog import project_comment_dialog
 from bot.dialogs.projects.edit_add_project.dialog import project_edit_add_dialog
 from bot.dialogs.projects.ya_direct.dialog import ya_direct_add_logins_dialog
 from bot.dialogs.projects.ya_direct.settings.dialog import ya_direct_settings_logins_dialog
@@ -73,6 +74,7 @@ def setup_dp(storage: Optional[BaseStorage] = None):
         faq_dialog,
         help_dialog,
         project_dialog,
+        project_comment_dialog,
         project_edit_add_dialog,
         ya_direct_add_logins_dialog,
         ya_direct_settings_logins_dialog,
@@ -123,7 +125,7 @@ async def main():
     storage: NatsStorage = await NatsStorage(nc=nc, js=js).create_storage()
     translator_hub: TranslatorHub = create_translator_hub()
 
-    bot = Bot(token=config.tg_bot.token,
+    bot = Bot(token=config.tg_bot.service_token,
               default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = setup_dp(storage=storage)
     dp.update.middleware(TranslatorRunnerMiddleware())

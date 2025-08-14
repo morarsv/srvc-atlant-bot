@@ -122,6 +122,7 @@ minor_attribution_window = Window(
     ),
     Next(
         text=Format(text='{btn_continue}'),
+        when='selected',
     ),
     getter=minor_attribution_getter,
     state=YaMetrikaCountersSG.MINOR_ATTRIBUTION

@@ -1,14 +1,13 @@
 import logging
-from uuid import UUID
 from aiogram.types import CallbackQuery
 from aiogram_dialog import DialogManager, StartMode, ShowMode
 from aiogram_dialog.widgets.kbd import Button
 from bot.state.dialog_state import AtlantAdministrationSG, ProjectsSG, ViewersSG, CompanyAdminSG
 from bot.database.models import Users, Projects
+from bot.utils.bot_func import get_session_data
 from bot.database import query
-from bot.lexicon.constants.constant import (PoolingConstant as poolConst,
-                                            StartDataConstant as StDataConst)
-from bot.support_models.models import SupportSessionUser
+from bot.lexicon.constants.constant import (StartDataConstant as StDataConst,
+                                            WidgetDataConstant as WDataConst)
 
 
 logger = logging.getLogger(__name__)
@@ -25,14 +24,11 @@ async def btn_to_atlant_administrator(callback: CallbackQuery,
 async def btn_to_administrator(callback: CallbackQuery,
                                button: Button,
                                dialog_manager: DialogManager) -> None:
-    middleware_data = dialog_manager.middleware_data
     tg_id = int(callback.from_user.id)
-
-    online_users: dict[int, SupportSessionUser] = middleware_data[poolConst.online_users.value]
-
-    user_data: SupportSessionUser = online_users.get(tg_id)
-    company_id: int = int(user_data.get('company_id'))
-
+    _, _, _, _, company_id, _ = get_session_data(
+        tg_id=tg_id,
+        dialog_manager=dialog_manager
+    )
     list_projects: list[Projects] = await query.get_projects_by_company(company_id=company_id)
     list_users: list[Users] = await query.get_active_users_by_company_id(company_id=company_id)
 
@@ -53,18 +49,12 @@ async def btn_to_administrator(callback: CallbackQuery,
 async def btn_to_project(callback: CallbackQuery,
                          button: Button,
                          dialog_manager: DialogManager) -> None:
-    middleware_data = dialog_manager.middleware_data
     tg_id = int(callback.from_user.id)
 
-    online_users: dict[int, SupportSessionUser] = middleware_data[poolConst.online_users.value]
-
-    user: SupportSessionUser = online_users.get(tg_id)
-    user_uuid: UUID = user['user_uuid']
-    role_id: int = user['role_id']
-
-    # list_projects: list[Projects] = await query.get_list_projects_by_user_uuid(user_uuid=user_uuid)
-
-    # projects = [(p.title, p.id) for p in list_projects]
+    _, _, role_id, user_uuid, _, _ = get_session_data(
+        tg_id=tg_id,
+        dialog_manager=dialog_manager
+    )
 
     await dialog_manager.start(
         show_mode=ShowMode.EDIT,
@@ -72,7 +62,6 @@ async def btn_to_project(callback: CallbackQuery,
         mode=StartMode.NORMAL,
         data={
             StDataConst.user_uuid.value: str(user_uuid),
-            # StDataConst.list_projects.value: projects,
             StDataConst.user_role_id.value: role_id
         }
     )
@@ -81,15 +70,12 @@ async def btn_to_project(callback: CallbackQuery,
 async def btn_to_viewers(callback: CallbackQuery,
                          button: Button,
                          dialog_manager: DialogManager) -> None:
-    middleware_data = dialog_manager.middleware_data
     tg_id = int(callback.from_user.id)
 
-    online_users: dict[int, SupportSessionUser] = middleware_data[poolConst.online_users.value]
-
-    manager: SupportSessionUser = online_users.get(tg_id)
-    user_uuid: UUID = manager['user_uuid']
-    company_id: int = manager['company_id']
-
+    _, _, _, user_uuid, company_id, _ = get_session_data(
+        tg_id=tg_id,
+        dialog_manager=dialog_manager
+    )
     list_users: list[Users] = await query.get_viewers_by_manager_id(manager_id=user_uuid)
     users = [(user.full_name, user.login) for user in list_users]
     await dialog_manager.start(
@@ -102,3 +88,27 @@ async def btn_to_viewers(callback: CallbackQuery,
             StDataConst.company_id.value: company_id
         }
     )
+
+
+async def get_company_report(company_id: int) -> str:
+    url = await query.get_report_company(company_id=company_id)
+    return url
+
+
+async def check_attention_project(dialog_manager: DialogManager) -> bool:
+    widget_data = dialog_manager.current_context().widget_data
+    tg_id = int(dialog_manager.event.from_user.id)
+    _, _, _, user_uuid, _, _ = get_session_data(
+        tg_id=tg_id,
+        dialog_manager=dialog_manager
+    )
+    list_projects: list[int] = await query.get_projects_ids_by_user_without_direct(user_uuid=user_uuid)
+    widget_data[WDataConst.projects_id.value] = list_projects
+    return True if list_projects else False
+
+
+async def attention_project(dialog_manager: DialogManager) -> str:
+    widget_data = dialog_manager.current_context().widget_data
+    projects_ids = widget_data[WDataConst.projects_id.value]
+    projects_title: list[str] = await query.get_projects_title_by_ids(ids=projects_ids)
+    return ','.join(projects_title)

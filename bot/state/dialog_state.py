@@ -10,6 +10,8 @@ class AuthorizationSG(StatesGroup):
 
 class StartSG(StatesGroup):
     PREVIEW = State()
+    ATTENTION_PROJECT = State()
+    COMPANY_REPORT = State()
 
 
 class AtlantAdministrationSG(StatesGroup):
@@ -63,12 +65,20 @@ class ProjectsSG(StatesGroup):
     INFO_PROJECT = State()
     ADD_SERVICE = State()
     YA_ACCESS = State()
+    REPORT = State()
 
 
 class ProjectsEditAddSG(StatesGroup):
     PREVIEW = State()
     INPUT_TITLE = State()
     INPUT_DESCRIPTION = State()
+
+
+class ProjectCommentSG(StatesGroup):
+    PREVIEW = State()
+    INPUT_TEXT = State()
+    INPUT_DATE = State()
+    INFO = State()
 
 
 class YaMetrikaCountersSG(StatesGroup):

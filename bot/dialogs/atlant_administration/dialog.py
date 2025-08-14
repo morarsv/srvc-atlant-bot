@@ -8,7 +8,8 @@ from bot.state.dialog_state import AtlantAdministrationSG
 
 from bot.dialogs.atlant_administration.handler import (btn_add_company, btn_add_user, btn_list_companies, btn_back,
                                                        btn_add_user_for_company, btn_switch_to_company,
-                                                       btn_switch_to_user, btn_switch_to_project)
+                                                       btn_switch_to_user, btn_switch_to_project, btn_regenerate_dbt,
+                                                       btn_regenerate_yaml)
 from bot.dialogs.atlant_administration.getter import (preview_getter, add_user_getter, list_users_getter,
                                                       list_company_getter, card_company_getter, list_projects_getter)
 
@@ -43,6 +44,13 @@ preview_window = Window(
         ),
         id='btn_list_companies',
         on_click=btn_list_companies
+    ),
+    Button(
+        text=Format(
+            text='{btn_regenerate_dbt}'
+        ),
+        id='btn_regenerate_dbt',
+        on_click=btn_regenerate_dbt
     ),
     Button(
         text=Format(
@@ -116,6 +124,13 @@ list_companies_window = Window(
 card_company_window = Window(
     Format(
         text='{preview_text}'
+    ),
+    Button(
+        text=Format(
+            text='{btn_regenerate_yaml}'
+        ),
+        id='btn_regenerate_yaml',
+        on_click=btn_regenerate_yaml
     ),
     SwitchTo(
         Format(

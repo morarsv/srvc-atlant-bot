@@ -1,8 +1,8 @@
-"""Baseline migration
+"""viewer manager added
 
-Revision ID: f4a892f3f9e8
-Revises: 53cf98b1456f
-Create Date: 2024-11-07 13:52:58.975719
+Revision ID: c3ef5d801b13
+Revises: bb4f99d55939
+Create Date: 2025-01-23 12:03:36.811794
 
 """
 from typing import Sequence, Union
@@ -12,11 +12,10 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'f4a892f3f9e8'
-down_revision: Union[str, None] = '53cf98b1456f'
+revision: str = 'c3ef5d801b13'
+down_revision: Union[str, None] = 'bb4f99d55939'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
 
 
 def upgrade() -> None:

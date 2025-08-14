@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 from aiogram_dialog.widgets.input import ManagedTextInput
@@ -11,6 +12,7 @@ from bot.lexicon.constants.constant import (WidgetDataConstant as WgDataConst,
                                             PoolingConstant as poolConst,
                                             DialogDataConstant as DgDataConst)
 from bot.services.web_reports.utils import web_add_user, web_add_company, web_update_user
+from bot.services.msvc.generator import func
 from bot.state.dialog_state import AtlantAdministrationEditAddUserSG, StartSG
 from bot.support_models.models import SupportSessionUser
 
@@ -21,8 +23,13 @@ async def btn_next_or_end(message: Message,
                           widget: ManagedTextInput,
                           dialog_manager: DialogManager,
                           text: str) -> None:
+    widget_data = dialog_manager.current_context().widget_data
+    widget_data[WgDataConst.mode_edit.value] = True
     dialog_data = dialog_manager.dialog_data
-    await message.delete()
+    try:
+        await message.delete()
+    except AttributeError as e:
+        logger.error(f'Error deleting message: {e}')
     if dialog_data.get(DgDataConst.finished_key.value, False):
         await dialog_manager.switch_to(AtlantAdministrationEditAddUserSG.PREVIEW,
                                        show_mode=ShowMode.EDIT)
@@ -35,10 +42,14 @@ async def btn_next_or_end_login(message: Message,
                                 dialog_manager: DialogManager,
                                 text: str) -> None:
     widget_data = dialog_manager.current_context().widget_data
+    widget_data[WgDataConst.mode_edit.value] = True
     login = text.lower()
 
     user: Users = await query.get_user_by_login(login=login)
-    await message.delete()
+    try:
+        await message.delete()
+    except AttributeError as e:
+        logger.error(f'Error deleting message: {e}')
     if user is not None:
         widget_data[WgDataConst.err_uniq_login.value] = True
         await dialog_manager.switch_to(AtlantAdministrationEditAddUserSG.INPUT_LOGIN,
@@ -55,7 +66,10 @@ async def error_login(message: Message,
                       error: ValueError):
     await dialog_manager.switch_to(state=AtlantAdministrationEditAddUserSG.INPUT_LOGIN,
                                    show_mode=ShowMode.EDIT)
-    await message.delete()
+    try:
+        await message.delete()
+    except AttributeError as e:
+        logger.error(f'Error deleting message: {e}')
 
 
 async def error_password(message: Message,
@@ -64,7 +78,10 @@ async def error_password(message: Message,
                          error: ValueError):
     await dialog_manager.switch_to(state=AtlantAdministrationEditAddUserSG.INPUT_PASSWORD,
                                    show_mode=ShowMode.EDIT)
-    await message.delete()
+    try:
+        await message.delete()
+    except AttributeError as e:
+        logger.error(f'Error deleting message: {e}')
 
 
 async def btn_back(callback: CallbackQuery,
@@ -130,6 +147,12 @@ async def btn_confirm(callback: CallbackQuery,
         company: Companies = Companies()
         company.company = company_name
         await query.add_company_and_user(company=company, user=user)
+        company: Companies = await query.get_company_by_name(name=company_name)
+        asyncio.create_task(func.generate_dbt_company(
+            logger=logger,
+            company_id=company.id,
+            company_name=company_name
+        ))
         await web_add_company(
             logger=logger,
             company_name=company_name,

@@ -119,6 +119,7 @@ minor_attribution_window = Window(
     Next(
         text=Format(text='{btn_continue}'),
         id='btn_minor_attribution',
+        when='selected',
         on_click=btn_minor_attribution_to_k_goals
     ),
     Back(

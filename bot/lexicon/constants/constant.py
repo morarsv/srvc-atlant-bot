@@ -52,6 +52,8 @@ class WidgetDataConstant(Enum):
     err_uniq_login = 'error_input_login'
     err_input_title = 'error_input_title'
     err_input_login = 'error_input_login'
+    err_input_text = 'error_input_text'
+    err_input_date = 'error_input_date'
 
     username = 'username'
     user_login = 'user_login'
@@ -63,6 +65,8 @@ class WidgetDataConstant(Enum):
 
     manager_projects = 'manager_projects'
     manager_uuid = 'manager_uuid'
+
+    mode_edit = 'mode_edit'
 
     counter_name = 'counter_name'
     counter_id = 'counter_id'
@@ -101,11 +105,17 @@ class WidgetDataConstant(Enum):
     project_author = 'project_author'
     project_list_counters = 'project_list_counters'
     project_list_logins = 'project_list_logins'
+    project_report = 'project_report'
     project_ya_list_active_logins = 'project_ya_list_active_logins'
     project_ya_list_inactive_logins = 'project_ya_list_inactive_logins'
     project_ya_deactivated_logins = 'project_ya_deactivated_logins'
     project_ya_activated_logins = 'project_ya_activated_logins'
     project_ya_direct_access_token = 'project_ya_direct_access_token'
+    project_created_at = 'project_created_at'
+
+    comment_id = 'comment_id'
+    comment_text = 'comment_text'
+    comment_date = 'comment_date'
 
     ya_direct_activated_logins = 'ya_direct_activated_logins'
     ya_direct_deactivated_logins = 'ya_direct_deactivated_logins'
@@ -163,6 +173,8 @@ class StartDataConstant(Enum):
     project_created = 'prjct_created'
     project_managers = 'prjct_managers'
     project_counter_id = 'prjct_counter_id'
+    project_created_at = 'project_created_at'
+    project_comments = 'project_comments'
 
     project_ya_list_active_logins = 'project_ya_list_active_logins'
     project_ya_list_inactive_logins = 'project_ya_list_inactive_logins'

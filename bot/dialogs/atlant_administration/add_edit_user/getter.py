@@ -41,6 +41,7 @@ async def card_user_getter(dialog_manager: DialogManager,
     dialog_data[DgDataConst.finished_key.value] = True
     user_edit = start_data.get(StDataConst.user_edit.value, False)
     company_name = start_data[StDataConst.company_name.value]
+    confirm = 1 if widget_data.get(WgDataConst.mode_edit.value) else None
 
     if user_edit:
         start_data[StDataConst.user_edit.value] = False
@@ -69,5 +70,6 @@ async def card_user_getter(dialog_manager: DialogManager,
         'btn_edit_username': i18n.button.edit.username(),
         'btn_edit_password': i18n.button.edit.password(),
         'btn_confirm': i18n.button.confirm(),
-        'btn_back': i18n.button.back()
+        'btn_back': i18n.button.back(),
+        'confirm': confirm
     }

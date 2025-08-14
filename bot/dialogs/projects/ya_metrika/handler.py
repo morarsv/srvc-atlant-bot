@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from typing import TYPE_CHECKING, Any
@@ -13,9 +14,8 @@ from bot.state.dialog_state import YaMetrikaCountersEditAddSG, YaMetrikaCounters
 from bot.lexicon.constants.constant import (WidgetDataConstant as WgDataConst,
                                             StartDataConstant as StDataConst,
                                             PoolingConstant as poolConst)
-from bot.services.airflow.dags_generator.dag_func import generate_dag
-from bot.services.airflow.utils import set_active_dag
-from bot.utils.bot_func import alert_msg_to_chat
+from bot.services.msvc.generator import func
+from bot.utils.bot_func import alert_msg_to_chat, get_session_data
 from bot.lexicon.lexicon_tg import LEXICON_TG_BOT
 
 if TYPE_CHECKING:
@@ -142,6 +142,9 @@ async def btn_confirm(callback: CallbackQuery,
     middleware_data = dialog_manager.middleware_data
 
     i18n: TranslatorRunner = middleware_data[poolConst.i18n.value]
+    tg_id = int(callback.from_user.id)
+    _, _, _, _, company_id, company_name = get_session_data(tg_id=tg_id,
+                                                            dialog_manager=dialog_manager)
 
     project_id = start_data[StDataConst.project_id.value]
     attribution = widget_data[WgDataConst.counter_attribution.value]
@@ -150,47 +153,34 @@ async def btn_confirm(callback: CallbackQuery,
     minor_attribution = LEXICON_ATTRIBUTION.get(minor_attribution[0]) if minor_attribution else None
     start_data[StDataConst.counter_attribution.value] = attribution
     start_data[StDataConst.counter_minor_attribution.value] = minor_attribution
-    try:
-        await query.set_ya_metrik_attribution(
-            p_id=project_id,
-            attribution=attribution,
-            minor_attribution=minor_attribution
-        )
-        await callback.answer(i18n.successfully.added())
-    except Exception as e:
-        await callback.answer(i18n.unsuccessfully.updated())
-        logger.error(f'Error with database: {e}')
-    project: Projects = await query.get_project_by_id(project_id=project_id)
-    title = project.title
-    company_name = project.company.company
-    start_date: str = str(project.created_at)
-    try:
-        await generate_dag(logger=logger,
-                           project_title=title,
-                           project_id=project_id,
-                           company_name=company_name,
-                           start_date=start_date,
-                           callback=callback)
-    except Exception as e:
-        logger.exception(f"Ошибка при генерации дага на стророне микросервиса: {e}")
-    await set_active_dag(
-        logger=logger,
-        company=company_name,
-        project_id=str(project_id),
-        company_id=str(project.company_id),
-        created_date=start_date,
-        i18n=i18n,
-        callback=callback
+
+    await query.set_ya_metrik_attribution(
+        p_id=project_id,
+        attribution=attribution,
+        minor_attribution=minor_attribution
     )
+    project: Projects = await query.get_project_by_id(project_id=project_id)
+
+    title = project.title
+    start_date: str = str(project.created_at)
     widget_data[WgDataConst.counter_attribution.value] = []
     widget_data[WgDataConst.counter_minor_attribution.value] = []
     await alert_msg_to_chat(chat_id=_chat_alert_id,
-                            callback=callback,
                             msg=i18n.alert.edited.ya.metrika.counter.attr(
                                 title=title,
                                 company=company_name
                             ),
                             logger=logger)
+    asyncio.create_task(func.generate_dag(logger=logger,
+                                          project_title=title,
+                                          project_id=project_id,
+                                          company_name=company_name,
+                                          start_date=start_date))
+    asyncio.create_task(func.generate_dbt_metrika(
+        logger=logger,
+        company_id=company_id,
+        company_name=company_name
+    ))
     await dialog_manager.switch_to(
         state=YaMetrikaCountersSG.PREVIEW,
         show_mode=ShowMode.EDIT

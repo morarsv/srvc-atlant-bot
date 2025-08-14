@@ -48,7 +48,6 @@ async def web_add_company(logger: logging,
                          f'Method: web_add_company')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -87,7 +86,6 @@ async def web_add_user(logger: logging,
                          f'Method: web_add_user')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -123,7 +121,6 @@ async def web_update_user(logger: logging,
                          f'Method: web_update_user')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -148,7 +145,6 @@ async def web_delete_manager(logger: logging,
                          f'Method: web_delete_manager')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -174,7 +170,6 @@ async def web_delete_viewer(logger: logging,
                          f'Method: web_delete_viewer')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -206,7 +201,6 @@ async def web_add_project(logger: logging,
                          f'Method: web_add_project')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -238,7 +232,6 @@ async def web_update_project(logger: logging,
                          f'Method: web_update_project')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -270,7 +263,6 @@ async def web_set_user_to_project(logger: logging,
                          f'Method: web_set_user_to_project')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -307,7 +299,6 @@ async def web_remove_user_from_project(logger: logging,
                          f'Method: web_remove_user_from_project')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -334,7 +325,6 @@ async def web_delete_project(logger: logging,
                          f'Method: web_delete_project')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
 
@@ -365,7 +355,6 @@ async def web_logout_from_sessions(logger: logging,
                          f'Method: web_logout_from_sessions')
             await err_msg_api_atlant_web(time=time,
                                          chat_id=_chat_id,
-                                         callback=callback,
                                          code=str(r.status_code),
                                          err_text=text)
             raise Exception
